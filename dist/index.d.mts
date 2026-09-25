@@ -303,11 +303,29 @@ declare function hashBuffer(buffer: Buffer): string;
  */
 declare function hashFile(filePath: string): Promise<string>;
 //#endregion
+//#region src/cli/output/json.d.ts
+declare function generateJsonReport(result: ScanResult): string;
+//#endregion
+//#region src/cli/output/markdown.d.ts
+declare function generateMarkdownReport(result: ScanResult): string;
+//#endregion
+//#region src/cli/output/html.d.ts
+declare function generateHtmlReport(result: ScanResult): string;
+//#endregion
+//#region src/cli/output/terminal.d.ts
+interface TerminalOutputOptions {
+  verbose?: boolean;
+}
+/**
+ * Render standard polished terminal output for scan results
+ */
+declare function renderTerminalOutput(result: ScanResult, options?: TerminalOutputOptions): string;
+//#endregion
 //#region src/index.d.ts
 /**
  * Scan and analyze a project directory for image health, bloat, issues, duplicates, and unused assets
  */
 declare function scanProject(targetPath?: string, config?: ImgCleanConfig): Promise<ScanResult>;
 //#endregion
-export { AnalyzerOptions, BudgetStatus, DEFAULT_EXCLUDE_PATTERNS, DEFAULT_MAX_DIMENSION, DEFAULT_MAX_FILE_SIZE, DiscoveredImageFile, DuplicateGroup, ExtractedMetadata, ImageAnalysis, ImageIssue, ImageWithHash, ImgCleanBudgetsConfig, ImgCleanConfig, ImgCleanRulesConfig, IssueDetectionOptions, IssueSeverity, IssueType, OptimizeOptions, OptimizeResult, ReportType, SOURCE_EXTENSIONS, SUPPORTED_EXTENSIONS, ScanCliOptions, ScanResult, ScannerOptions, SupportedImageFormat, UnusedDetectionOptions, analyzeImage, analyzeProject, checkBudget, checkDimensionIssue, checkMetadataIssue, checkOversizedIssue, ensureDir, extractImageMetadata, findConfigFile, findDuplicateGroups, findPossiblyUnusedImages, formatBytes, generateDuplicateIssues, generateUnusedIssues, getRelativePath, hashBuffer, hashFile, inferFormatFromExtension, isDirectory, isSupportedImageExtension, loadJsonFile, normalizePath, optimizeImage, optimizeProject, parseBytes, pathExists, resolvePath, scanImageFiles, scanProject };
+export { AnalyzerOptions, BudgetStatus, DEFAULT_EXCLUDE_PATTERNS, DEFAULT_MAX_DIMENSION, DEFAULT_MAX_FILE_SIZE, DiscoveredImageFile, DuplicateGroup, ExtractedMetadata, ImageAnalysis, ImageIssue, ImageWithHash, ImgCleanBudgetsConfig, ImgCleanConfig, ImgCleanRulesConfig, IssueDetectionOptions, IssueSeverity, IssueType, OptimizeOptions, OptimizeResult, ReportType, SOURCE_EXTENSIONS, SUPPORTED_EXTENSIONS, ScanCliOptions, ScanResult, ScannerOptions, SupportedImageFormat, TerminalOutputOptions, UnusedDetectionOptions, analyzeImage, analyzeProject, checkBudget, checkDimensionIssue, checkMetadataIssue, checkOversizedIssue, ensureDir, extractImageMetadata, findConfigFile, findDuplicateGroups, findPossiblyUnusedImages, formatBytes, generateDuplicateIssues, generateHtmlReport, generateJsonReport, generateMarkdownReport, generateUnusedIssues, getRelativePath, hashBuffer, hashFile, inferFormatFromExtension, isDirectory, isSupportedImageExtension, loadJsonFile, normalizePath, optimizeImage, optimizeProject, parseBytes, pathExists, renderTerminalOutput, resolvePath, scanImageFiles, scanProject };
 //# sourceMappingURL=index.d.mts.map

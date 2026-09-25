@@ -1,93 +1,20 @@
 #!/usr/bin/env node
-import { E as findConfigFile, O as loadJsonFile, g as formatBytes, i as analyzeProject, k as pathExists, n as optimizeProject, w as scanImageFiles } from "../optimizer-BD393IIm.mjs";
+import { A as findConfigFile, M as loadJsonFile, N as pathExists, O as scanImageFiles, b as formatBytes, c as analyzeProject, i as generateJsonReport, k as ensureDir, n as generateHtmlReport, o as optimizeProject, r as generateMarkdownReport, t as renderTerminalOutput } from "../terminal-CsKMqhJo.mjs";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { Command } from "commander";
 import chalk from "chalk";
-//#region src/cli/output/terminal.ts
-/**
-* Render standard polished terminal output for scan results
-*/
-function renderTerminalOutput(result, options = {}) {
-	const lines = [];
-	lines.push("");
-	lines.push(chalk.green(`✓ ${result.totalImages} images scanned\n`));
-	lines.push(chalk.bold("IMAGE SIZE"));
-	lines.push("─".repeat(28));
-	lines.push(`Total             ${formatBytes(result.totalSize).padStart(10, " ")}`);
-	if (result.potentialSavings > 0) lines.push(`Potential savings ${chalk.green(formatBytes(result.potentialSavings).padStart(10, " "))}`);
-	const issueCounts = {
-		oversized: 0,
-		dimensions: 0,
-		duplicate: 0,
-		metadata: 0,
-		unused: 0
-	};
-	for (const issue of result.issues) if (issue.type in issueCounts) issueCounts[issue.type] = (issueCounts[issue.type] || 0) + 1;
-	const totalIssuesCount = result.issues.length;
-	if (totalIssuesCount > 0) {
-		lines.push("");
-		lines.push(chalk.bold("ISSUES"));
-		lines.push("─".repeat(28));
-		if (issueCounts.oversized && issueCounts.oversized > 0) lines.push(`${chalk.yellow("⚠")} Oversized          ${String(issueCounts.oversized).padStart(8, " ")}`);
-		if (issueCounts.dimensions && issueCounts.dimensions > 0) lines.push(`${chalk.yellow("⚠")} Large dimensions   ${String(issueCounts.dimensions).padStart(8, " ")}`);
-		if (issueCounts.duplicate && issueCounts.duplicate > 0) lines.push(`${chalk.yellow("⚠")} Duplicates         ${String(issueCounts.duplicate).padStart(8, " ")}`);
-		if (issueCounts.metadata && issueCounts.metadata > 0) lines.push(`${chalk.yellow("⚠")} Metadata           ${String(issueCounts.metadata).padStart(8, " ")}`);
-		if (issueCounts.unused && issueCounts.unused > 0) lines.push(`${chalk.yellow("⚠")} Possibly unused    ${String(issueCounts.unused).padStart(8, " ")}`);
-	}
-	if (result.images.length > 0) {
-		const topFiles = [...result.images].sort((a, b) => b.size - a.size).slice(0, 5);
-		lines.push("");
-		lines.push(chalk.bold("LARGEST FILES"));
-		lines.push("─".repeat(28));
-		for (const img of topFiles) {
-			const displayPath = img.path.length > 20 ? "..." + img.path.slice(-17) : img.path;
-			lines.push(`${displayPath.padEnd(20, " ")} ${formatBytes(img.size).padStart(7, " ")}`);
-		}
-	}
-	const formatEntries = Object.entries(result.formatBreakdown);
-	if (formatEntries.length > 0) {
-		lines.push("");
-		lines.push(chalk.bold("FORMAT BREAKDOWN"));
-		lines.push("─".repeat(28));
-		for (const [format, stat] of formatEntries) lines.push(`${format.padEnd(16, " ")}  ${formatBytes(stat.size).padStart(10, " ")}`);
-	}
-	if (result.budget) {
-		lines.push("");
-		lines.push(chalk.bold("BUDGET"));
-		lines.push("─".repeat(28));
-		const budgetStr = `${formatBytes(result.totalSize)} / ${formatBytes(result.budget.totalBudget || 0)}`;
-		const statusIcon = result.budget.passed ? chalk.green("✓") : chalk.red("✗");
-		lines.push(`${budgetStr.padEnd(22, " ")} ${statusIcon}`);
-	}
-	if (options.verbose && result.issues.length > 0) {
-		lines.push("");
-		lines.push(chalk.bold("DETAILED FINDINGS"));
-		lines.push("─".repeat(40));
-		for (const issue of result.issues) {
-			const typeLabel = `[${issue.type.toUpperCase()}]`.padEnd(14, " ");
-			lines.push(`${chalk.yellow(typeLabel)} ${chalk.cyan(issue.file)}`);
-			lines.push(`               ${issue.message}`);
-		}
-	}
-	if (result.potentialSavings > 0 || totalIssuesCount > 0) {
-		lines.push("");
-		lines.push(chalk.dim("Run `imgclean fix` to optimize images."));
-	}
-	return lines.join("\n");
-}
-//#endregion
+import { Command } from "commander";
 //#region src/cli/commands/scan.ts
 async function scanCommand(targetPath, options = {}) {
 	const target = targetPath || ".";
 	const resolvedTarget = path.resolve(process.cwd(), target);
 	const configPath = await findConfigFile(process.cwd(), options.config);
 	const config = configPath ? await loadJsonFile(configPath) : null;
-	if (options.verbose && !options.json) {
+	if (options.verbose && !options.json && !options.report) {
 		console.log(chalk.gray(`Target: ${resolvedTarget}`));
 		if (configPath) console.log(chalk.gray(`Config: ${configPath}`));
 	}
-	if (!options.json) {
+	if (!options.json && !options.report) {
 		console.log(chalk.cyan.bold("\nimgclean"));
 		console.log(chalk.gray(`Scanning ${target}...`));
 	}
@@ -98,6 +25,32 @@ async function scanCommand(targetPath, options = {}) {
 	const result = await analyzeProject(rootDir, files, { config });
 	if (options.json) {
 		console.log(JSON.stringify(result, null, 2));
+		return result;
+	}
+	if (options.report) {
+		const reportType = String(options.report).toLowerCase();
+		let content = "";
+		let defaultFilename = "";
+		switch (reportType) {
+			case "html":
+				content = generateHtmlReport(result);
+				defaultFilename = "imgclean-report.html";
+				break;
+			case "json":
+				content = generateJsonReport(result);
+				defaultFilename = "imgclean-report.json";
+				break;
+			case "md":
+			case "markdown":
+				content = generateMarkdownReport(result);
+				defaultFilename = "imgclean-report.md";
+				break;
+			default: throw new Error(`Unsupported report format: "${reportType}". Supported formats: html, json, md`);
+		}
+		const outputPath = options.output ? path.resolve(process.cwd(), options.output) : path.resolve(process.cwd(), defaultFilename);
+		await ensureDir(path.dirname(outputPath));
+		await fs.writeFile(outputPath, content, "utf-8");
+		console.log(chalk.green(`\n✓ ${reportType.toUpperCase()} report generated: ${path.relative(process.cwd(), outputPath)}`));
 		return result;
 	}
 	const output = renderTerminalOutput(result, { verbose: options.verbose });

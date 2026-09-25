@@ -4,6 +4,7 @@ import fg from "fast-glob";
 import fs$1, { existsSync } from "node:fs";
 import sharp from "sharp";
 import crypto from "node:crypto";
+import chalk from "chalk";
 //#region src/types/index.ts
 const SUPPORTED_EXTENSIONS = [
 	"jpg",
@@ -797,6 +798,502 @@ async function optimizeProject(rootDir, files, options = {}) {
 	};
 }
 //#endregion
-export { getRelativePath as A, isSupportedImageExtension as C, isDirectory as D, findConfigFile as E, resolvePath as M, SUPPORTED_EXTENSIONS as N, loadJsonFile as O, inferFormatFromExtension as S, ensureDir as T, parseBytes as _, DEFAULT_MAX_DIMENSION as a, extractImageMetadata as b, checkMetadataIssue as c, SOURCE_EXTENSIONS as d, findPossiblyUnusedImages as f, formatBytes as g, generateDuplicateIssues as h, analyzeProject as i, normalizePath as j, pathExists as k, checkOversizedIssue as l, findDuplicateGroups as m, optimizeProject as n, DEFAULT_MAX_FILE_SIZE as o, generateUnusedIssues as p, analyzeImage as r, checkDimensionIssue as s, optimizeImage as t, checkBudget as u, hashBuffer as v, scanImageFiles as w, DEFAULT_EXCLUDE_PATTERNS as x, hashFile as y };
+//#region src/cli/output/json.ts
+function generateJsonReport(result) {
+	const reportData = {
+		summary: {
+			rootPath: result.rootPath,
+			totalImages: result.totalImages,
+			totalSize: result.totalSize,
+			formattedTotalSize: formatBytes(result.totalSize),
+			potentialSavings: result.potentialSavings,
+			formattedPotentialSavings: formatBytes(result.potentialSavings),
+			scanDurationMs: result.scanDurationMs,
+			totalIssues: result.issues.length,
+			duplicateGroupsCount: result.duplicates.length,
+			possiblyUnusedCount: result.possiblyUnused.length
+		},
+		budget: result.budget,
+		formatBreakdown: result.formatBreakdown,
+		issues: result.issues,
+		duplicates: result.duplicates,
+		possiblyUnused: result.possiblyUnused,
+		images: result.images.map((img) => ({
+			path: img.path,
+			format: img.format,
+			size: img.size,
+			formattedSize: formatBytes(img.size),
+			width: img.width,
+			height: img.height,
+			aspectRatio: img.aspectRatio,
+			channels: img.channels,
+			hasAlpha: img.hasAlpha,
+			hasMetadata: img.hasMetadata,
+			metadataTypes: img.metadataTypes,
+			hash: img.hash,
+			issues: img.issues
+		}))
+	};
+	return JSON.stringify(reportData, null, 2);
+}
+//#endregion
+//#region src/cli/output/markdown.ts
+function generateMarkdownReport(result) {
+	const lines = [];
+	lines.push("# imgclean Image Health Report\n");
+	lines.push(`- **Scanned Directory:** \`${result.rootPath}\``);
+	lines.push(`- **Total Images:** ${result.totalImages}`);
+	lines.push(`- **Total Image Size:** ${formatBytes(result.totalSize)}`);
+	if (result.potentialSavings > 0) lines.push(`- **Potential Savings:** **${formatBytes(result.potentialSavings)}**`);
+	lines.push(`- **Scan Duration:** ${result.scanDurationMs}ms\n`);
+	if (result.budget) {
+		lines.push("## Image Budget");
+		lines.push("| Metric | Value | Status |");
+		lines.push("| :--- | :--- | :--- |");
+		const totalBudgetStr = result.budget.totalBudget ? formatBytes(result.budget.totalBudget) : "N/A";
+		lines.push(`| Total Budget | ${formatBytes(result.totalSize)} / ${totalBudgetStr} | ${result.budget.passedTotal ? "✅ Passed" : "❌ Exceeded"} |`);
+		if (result.budget.singleBudget) lines.push(`| Single File Budget | Max ${formatBytes(result.budget.singleBudget)} | ${result.budget.passedSingle ? "✅ Passed" : "❌ Exceeded"} |`);
+		lines.push("");
+	}
+	const formatEntries = Object.entries(result.formatBreakdown);
+	if (formatEntries.length > 0) {
+		lines.push("## Format Breakdown");
+		lines.push("| Format | File Count | Total Size | % of Total |");
+		lines.push("| :--- | :--- | :--- | :--- |");
+		for (const [fmt, stat] of formatEntries) {
+			const pct = result.totalSize > 0 ? (stat.size / result.totalSize * 100).toFixed(1) : "0.0";
+			lines.push(`| **${fmt}** | ${stat.count} | ${formatBytes(stat.size)} | ${pct}% |`);
+		}
+		lines.push("");
+	}
+	if (result.issues.length > 0) {
+		lines.push("## Detected Issues");
+		lines.push("| File | Type | Severity | Message | Potential Savings |");
+		lines.push("| :--- | :--- | :--- | :--- | :--- |");
+		for (const issue of result.issues) {
+			const savings = issue.potentialSavings ? formatBytes(issue.potentialSavings) : "-";
+			lines.push(`| \`${issue.file}\` | \`${issue.type}\` | ${issue.severity} | ${issue.message} | ${savings} |`);
+		}
+		lines.push("");
+	}
+	if (result.duplicates.length > 0) {
+		lines.push("## Exact Duplicates (SHA-256)");
+		for (const group of result.duplicates) {
+			lines.push(`- **Potential Savings:** ${formatBytes(group.potentialSavings)} (${group.files.length} copies)`);
+			for (const f of group.files) lines.push(`  - \`${f}\``);
+		}
+		lines.push("");
+	}
+	if (result.possiblyUnused.length > 0) {
+		lines.push("## Possibly Unused Images");
+		lines.push("> ℹ️ *These images were not found in static code references. Verify before removing.*");
+		for (const unused of result.possiblyUnused) lines.push(`- \`${unused}\``);
+		lines.push("");
+	}
+	if (result.images.length > 0) {
+		const sorted = [...result.images].sort((a, b) => b.size - a.size).slice(0, 10);
+		lines.push("## Largest Images");
+		lines.push("| File | Format | Dimensions | Size |");
+		lines.push("| :--- | :--- | :--- | :--- |");
+		for (const img of sorted) {
+			const dims = img.width && img.height ? `${img.width}×${img.height}` : "-";
+			lines.push(`| \`${img.path}\` | ${img.format.toUpperCase()} | ${dims} | ${formatBytes(img.size)} |`);
+		}
+		lines.push("");
+	}
+	lines.push("---\n*Generated by [imgclean](https://github.com/rajank18/imgclean)*");
+	return lines.join("\n");
+}
+//#endregion
+//#region src/cli/output/html.ts
+function generateHtmlReport(result) {
+	const formatEntries = Object.entries(result.formatBreakdown);
+	const totalIssues = result.issues.length;
+	return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>imgclean Report · Image Health & Optimization</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-grad: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+      --green: #22c55e;
+      --yellow: #eab308;
+      --red: #ef4444;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      line-height: 1.5;
+      padding: 2rem 1rem;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    header {
+      margin-bottom: 2rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .brand h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      background: var(--accent-grad);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.025em;
+    }
+    .brand p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-top: 0.25rem;
+    }
+    .meta-badge {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .grid-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+    }
+    .stat-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+    }
+    .stat-value {
+      font-size: 1.85rem;
+      font-weight: 700;
+      margin-top: 0.25rem;
+    }
+    .stat-value.savings { color: var(--green); }
+    .stat-value.issues { color: var(--yellow); }
 
-//# sourceMappingURL=optimizer-BD393IIm.mjs.map
+    .section-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .table-container {
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.9rem;
+    }
+    th {
+      background: #0f172a80;
+      color: var(--text-muted);
+      font-weight: 600;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    tr:hover td {
+      background: #33415533;
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .badge-oversized { background: #713f12; color: #fef08a; }
+    .badge-dimensions { background: #1e3a8a; color: #bfdbfe; }
+    .badge-duplicate { background: #581c87; color: #e9d5ff; }
+    .badge-metadata { background: #134e4a; color: #99f6e4; }
+    .badge-unused { background: #374151; color: #d1d5db; }
+
+    .format-bar-container {
+      display: flex;
+      height: 12px;
+      border-radius: 6px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+      background: #334155;
+    }
+    .format-slice { height: 100%; }
+    .format-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 0.75rem;
+    }
+    .format-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem 0.75rem;
+      background: #0f172a66;
+      border-radius: 8px;
+      font-size: 0.85rem;
+    }
+    footer {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-top: 3rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <h1>imgclean Report</h1>
+        <p>Target: <code>${result.rootPath}</code></p>
+      </div>
+      <div class="meta-badge">
+        Scan Time: ${result.scanDurationMs}ms · Generated ${(/* @__PURE__ */ new Date()).toISOString().split("T")[0]}
+      </div>
+    </header>
+
+    <!-- Overview Stats -->
+    <div class="grid-stats">
+      <div class="stat-card">
+        <div class="stat-label">Total Images</div>
+        <div class="stat-value">${result.totalImages}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Size</div>
+        <div class="stat-value">${formatBytes(result.totalSize)}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Potential Savings</div>
+        <div class="stat-value savings">${formatBytes(result.potentialSavings)}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Issues Detected</div>
+        <div class="stat-value issues">${totalIssues}</div>
+      </div>
+    </div>
+
+    <!-- Format Breakdown -->
+    <div class="section-card">
+      <div class="section-title">Format Breakdown</div>
+      <div class="format-grid">
+        ${formatEntries.map(([fmt, stat]) => `
+          <div class="format-item">
+            <span><strong>${fmt}</strong> (${stat.count})</span>
+            <span>${formatBytes(stat.size)}</span>
+          </div>`).join("")}
+      </div>
+    </div>
+
+    <!-- Issues Section -->
+    ${result.issues.length > 0 ? `
+    <div class="section-card">
+      <div class="section-title">Detected Issues (${result.issues.length})</div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>File</th>
+              <th>Details</th>
+              <th>Potential Savings</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${result.issues.map((issue) => `
+              <tr>
+                <td><span class="badge badge-${issue.type}">${issue.type}</span></td>
+                <td><code>${issue.file}</code></td>
+                <td>${issue.message}</td>
+                <td>${issue.potentialSavings ? formatBytes(issue.potentialSavings) : "-"}</td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>` : ""}
+
+    <!-- Duplicates Section -->
+    ${result.duplicates.length > 0 ? `
+    <div class="section-card">
+      <div class="section-title">Exact Duplicate Groups (${result.duplicates.length})</div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Copies</th>
+              <th>Individual Size</th>
+              <th>Potential Savings</th>
+              <th>Files</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${result.duplicates.map((group) => `
+              <tr>
+                <td>${group.files.length}</td>
+                <td>${formatBytes(group.size)}</td>
+                <td><strong style="color: var(--green)">${formatBytes(group.potentialSavings)}</strong></td>
+                <td>${group.files.map((f) => `<code>${f}</code>`).join("<br/>")}</td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>` : ""}
+
+    <!-- All Images Table -->
+    <div class="section-card">
+      <div class="section-title">All Scanned Images (${result.images.length})</div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>Format</th>
+              <th>Dimensions</th>
+              <th>Size</th>
+              <th>Issues</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${result.images.map((img) => {
+		const dims = img.width && img.height ? `${img.width} × ${img.height}` : "-";
+		const issues = img.issues && img.issues.length > 0 ? img.issues.map((i) => `<span class="badge badge-${i.type}">${i.type}</span>`).join(" ") : "<span style=\"color: var(--green)\">✓ Clean</span>";
+		return `
+              <tr>
+                <td><code>${img.path}</code></td>
+                <td>${img.format.toUpperCase()}</td>
+                <td>${dims}</td>
+                <td>${formatBytes(img.size)}</td>
+                <td>${issues}</td>
+              </tr>`;
+	}).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <footer>
+      Generated with <strong>imgclean</strong> · Image Health and Cleanup Tool
+    </footer>
+  </div>
+</body>
+</html>`;
+}
+//#endregion
+//#region src/cli/output/terminal.ts
+/**
+* Render standard polished terminal output for scan results
+*/
+function renderTerminalOutput(result, options = {}) {
+	const lines = [];
+	lines.push("");
+	lines.push(chalk.green(`✓ ${result.totalImages} images scanned\n`));
+	lines.push(chalk.bold("IMAGE SIZE"));
+	lines.push("─".repeat(28));
+	lines.push(`Total             ${formatBytes(result.totalSize).padStart(10, " ")}`);
+	if (result.potentialSavings > 0) lines.push(`Potential savings ${chalk.green(formatBytes(result.potentialSavings).padStart(10, " "))}`);
+	const issueCounts = {
+		oversized: 0,
+		dimensions: 0,
+		duplicate: 0,
+		metadata: 0,
+		unused: 0
+	};
+	for (const issue of result.issues) if (issue.type in issueCounts) issueCounts[issue.type] = (issueCounts[issue.type] || 0) + 1;
+	const totalIssuesCount = result.issues.length;
+	if (totalIssuesCount > 0) {
+		lines.push("");
+		lines.push(chalk.bold("ISSUES"));
+		lines.push("─".repeat(28));
+		if (issueCounts.oversized && issueCounts.oversized > 0) lines.push(`${chalk.yellow("⚠")} Oversized          ${String(issueCounts.oversized).padStart(8, " ")}`);
+		if (issueCounts.dimensions && issueCounts.dimensions > 0) lines.push(`${chalk.yellow("⚠")} Large dimensions   ${String(issueCounts.dimensions).padStart(8, " ")}`);
+		if (issueCounts.duplicate && issueCounts.duplicate > 0) lines.push(`${chalk.yellow("⚠")} Duplicates         ${String(issueCounts.duplicate).padStart(8, " ")}`);
+		if (issueCounts.metadata && issueCounts.metadata > 0) lines.push(`${chalk.yellow("⚠")} Metadata           ${String(issueCounts.metadata).padStart(8, " ")}`);
+		if (issueCounts.unused && issueCounts.unused > 0) lines.push(`${chalk.yellow("⚠")} Possibly unused    ${String(issueCounts.unused).padStart(8, " ")}`);
+	}
+	if (result.images.length > 0) {
+		const topFiles = [...result.images].sort((a, b) => b.size - a.size).slice(0, 5);
+		lines.push("");
+		lines.push(chalk.bold("LARGEST FILES"));
+		lines.push("─".repeat(28));
+		for (const img of topFiles) {
+			const displayPath = img.path.length > 20 ? "..." + img.path.slice(-17) : img.path;
+			lines.push(`${displayPath.padEnd(20, " ")} ${formatBytes(img.size).padStart(7, " ")}`);
+		}
+	}
+	const formatEntries = Object.entries(result.formatBreakdown);
+	if (formatEntries.length > 0) {
+		lines.push("");
+		lines.push(chalk.bold("FORMAT BREAKDOWN"));
+		lines.push("─".repeat(28));
+		for (const [format, stat] of formatEntries) lines.push(`${format.padEnd(16, " ")}  ${formatBytes(stat.size).padStart(10, " ")}`);
+	}
+	if (result.budget) {
+		lines.push("");
+		lines.push(chalk.bold("BUDGET"));
+		lines.push("─".repeat(28));
+		const budgetStr = `${formatBytes(result.totalSize)} / ${formatBytes(result.budget.totalBudget || 0)}`;
+		const statusIcon = result.budget.passed ? chalk.green("✓") : chalk.red("✗");
+		lines.push(`${budgetStr.padEnd(22, " ")} ${statusIcon}`);
+	}
+	if (options.verbose && result.issues.length > 0) {
+		lines.push("");
+		lines.push(chalk.bold("DETAILED FINDINGS"));
+		lines.push("─".repeat(40));
+		for (const issue of result.issues) {
+			const typeLabel = `[${issue.type.toUpperCase()}]`.padEnd(14, " ");
+			lines.push(`${chalk.yellow(typeLabel)} ${chalk.cyan(issue.file)}`);
+			lines.push(`               ${issue.message}`);
+		}
+	}
+	if (result.potentialSavings > 0 || totalIssuesCount > 0) {
+		lines.push("");
+		lines.push(chalk.dim("Run `imgclean fix` to optimize images."));
+	}
+	return lines.join("\n");
+}
+//#endregion
+export { findConfigFile as A, hashFile as C, isSupportedImageExtension as D, inferFormatFromExtension as E, normalizePath as F, resolvePath as I, SUPPORTED_EXTENSIONS as L, loadJsonFile as M, pathExists as N, scanImageFiles as O, getRelativePath as P, hashBuffer as S, DEFAULT_EXCLUDE_PATTERNS as T, generateUnusedIssues as _, optimizeImage as a, formatBytes as b, analyzeProject as c, checkDimensionIssue as d, checkMetadataIssue as f, findPossiblyUnusedImages as g, SOURCE_EXTENSIONS as h, generateJsonReport as i, isDirectory as j, ensureDir as k, DEFAULT_MAX_DIMENSION as l, checkBudget as m, generateHtmlReport as n, optimizeProject as o, checkOversizedIssue as p, generateMarkdownReport as r, analyzeImage as s, renderTerminalOutput as t, DEFAULT_MAX_FILE_SIZE as u, findDuplicateGroups as v, extractImageMetadata as w, parseBytes as x, generateDuplicateIssues as y };
+
+//# sourceMappingURL=terminal-CsKMqhJo.mjs.map

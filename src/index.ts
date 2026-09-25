@@ -11,6 +11,10 @@ export * from './utils/bytes.js';
 export * from './utils/paths.js';
 export * from './utils/files.js';
 export * from './utils/hashing.js';
+export * from './cli/output/json.js';
+export * from './cli/output/markdown.js';
+export * from './cli/output/html.js';
+export * from './cli/output/terminal.js';
 
 import { scanImageFiles } from './core/scanner.js';
 import { analyzeProject } from './core/analyzer.js';

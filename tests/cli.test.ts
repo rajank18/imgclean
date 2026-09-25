@@ -46,6 +46,19 @@ describe('cli', () => {
     expect(parsed.images[0].height).toBe(64);
   });
 
+  it('can run imgclean scan --report=html to export HTML report', async () => {
+    const reportHtml = path.join(CLI_TEST_DIR, 'custom-report.html');
+    const cliPath = path.resolve(process.cwd(), 'dist/cli/index.mjs');
+
+    await execAsync(`node "${cliPath}" scan "${CLI_TEST_DIR}" --report=html --output "${reportHtml}"`);
+    const stat = await fs.stat(reportHtml);
+    expect(stat.isFile()).toBe(true);
+
+    const htmlContent = await fs.readFile(reportHtml, 'utf-8');
+    expect(htmlContent).toContain('<!DOCTYPE html>');
+    expect(htmlContent).toContain('cli-sample.png');
+  });
+
   it('can run imgclean init to generate config file', async () => {
     const initTestDir = path.join(CLI_TEST_DIR, 'init-sub');
     await fs.mkdir(initTestDir, { recursive: true });
@@ -66,7 +79,6 @@ describe('cli', () => {
     const ciTestDir = path.join(CLI_TEST_DIR, 'ci-sub');
     await fs.mkdir(ciTestDir, { recursive: true });
 
-    // Create config with strict 100B budget
     const config = {
       budgets: { total: '100B' },
     };
@@ -75,14 +87,12 @@ describe('cli', () => {
       JSON.stringify(config, null, 2)
     );
 
-    // Create image of ~400 bytes (will breach 100B budget)
     await sharp({
       create: { width: 32, height: 32, channels: 3, background: { r: 255, g: 0, b: 0 } },
     }).png().toFile(path.join(ciTestDir, 'sample.png'));
 
     const cliPath = path.resolve(process.cwd(), 'dist/cli/index.mjs');
 
-    // Should fail with exit code 1
     try {
       await execAsync(`node "${cliPath}" ci --json`, { cwd: ciTestDir });
       expect.unreachable('Should have exited with code 1');
