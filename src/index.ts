@@ -1,6 +1,7 @@
 export * from './types/index.js';
 export * from './core/scanner.js';
 export * from './core/analyzer.js';
+export * from './core/optimizer.js';
 export * from './core/metadata.js';
 export * from './core/duplicates.js';
 export * from './core/unused.js';
@@ -13,6 +14,7 @@ export * from './utils/hashing.js';
 
 import { scanImageFiles } from './core/scanner.js';
 import { analyzeProject } from './core/analyzer.js';
+import { optimizeImage, optimizeProject, type OptimizeOptions } from './core/optimizer.js';
 import type { ImgCleanConfig, ScanResult } from './types/index.js';
 
 /**
@@ -29,3 +31,5 @@ export async function scanProject(
 
   return analyzeProject(rootDir, files, { config });
 }
+
+export { optimizeImage, optimizeProject };

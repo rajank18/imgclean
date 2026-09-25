@@ -128,6 +128,53 @@ declare function analyzeImage(file: DiscoveredImageFile, options?: AnalyzerOptio
  */
 declare function analyzeProject(rootDir: string, files: DiscoveredImageFile[], options?: AnalyzerOptions): Promise<ScanResult>;
 //#endregion
+//#region src/core/optimizer.d.ts
+interface OptimizeOptions {
+  compress?: boolean;
+  quality?: number;
+  format?: 'webp' | 'avif' | 'png' | 'jpeg' | 'jpg';
+  resize?: boolean;
+  maxWidth?: number;
+  maxHeight?: number;
+  targetSize?: string | number;
+  stripMetadata?: boolean;
+  dryRun?: boolean;
+  outputDir?: string;
+  overwrite?: boolean;
+}
+interface OptimizeResult {
+  inputPath: string;
+  outputPath?: string;
+  originalSize: number;
+  optimizedSize: number;
+  savingsBytes: number;
+  savingsPercentage: number;
+  format: string;
+  width?: number;
+  height?: number;
+  qualityUsed?: number;
+  targetSize?: number;
+  targetReached?: boolean;
+  metadataStripped?: boolean;
+  dryRun: boolean;
+  success: boolean;
+  error?: string;
+}
+/**
+ * Safely optimize a single image file
+ */
+declare function optimizeImage(inputPath: string, options?: OptimizeOptions, rootDir?: string): Promise<OptimizeResult>;
+/**
+ * Optimize a batch of image files safely
+ */
+declare function optimizeProject(rootDir: string, files: DiscoveredImageFile[], options?: OptimizeOptions): Promise<{
+  results: OptimizeResult[];
+  totalOriginalSize: number;
+  totalOptimizedSize: number;
+  totalSavings: number;
+  dryRun: boolean;
+}>;
+//#endregion
 //#region src/core/metadata.d.ts
 interface ExtractedMetadata {
   width?: number;
@@ -262,5 +309,5 @@ declare function hashFile(filePath: string): Promise<string>;
  */
 declare function scanProject(targetPath?: string, config?: ImgCleanConfig): Promise<ScanResult>;
 //#endregion
-export { AnalyzerOptions, BudgetStatus, DEFAULT_EXCLUDE_PATTERNS, DEFAULT_MAX_DIMENSION, DEFAULT_MAX_FILE_SIZE, DiscoveredImageFile, DuplicateGroup, ExtractedMetadata, ImageAnalysis, ImageIssue, ImageWithHash, ImgCleanBudgetsConfig, ImgCleanConfig, ImgCleanRulesConfig, IssueDetectionOptions, IssueSeverity, IssueType, ReportType, SOURCE_EXTENSIONS, SUPPORTED_EXTENSIONS, ScanCliOptions, ScanResult, ScannerOptions, SupportedImageFormat, UnusedDetectionOptions, analyzeImage, analyzeProject, checkBudget, checkDimensionIssue, checkMetadataIssue, checkOversizedIssue, ensureDir, extractImageMetadata, findConfigFile, findDuplicateGroups, findPossiblyUnusedImages, formatBytes, generateDuplicateIssues, generateUnusedIssues, getRelativePath, hashBuffer, hashFile, inferFormatFromExtension, isDirectory, isSupportedImageExtension, loadJsonFile, normalizePath, parseBytes, pathExists, resolvePath, scanImageFiles, scanProject };
+export { AnalyzerOptions, BudgetStatus, DEFAULT_EXCLUDE_PATTERNS, DEFAULT_MAX_DIMENSION, DEFAULT_MAX_FILE_SIZE, DiscoveredImageFile, DuplicateGroup, ExtractedMetadata, ImageAnalysis, ImageIssue, ImageWithHash, ImgCleanBudgetsConfig, ImgCleanConfig, ImgCleanRulesConfig, IssueDetectionOptions, IssueSeverity, IssueType, OptimizeOptions, OptimizeResult, ReportType, SOURCE_EXTENSIONS, SUPPORTED_EXTENSIONS, ScanCliOptions, ScanResult, ScannerOptions, SupportedImageFormat, UnusedDetectionOptions, analyzeImage, analyzeProject, checkBudget, checkDimensionIssue, checkMetadataIssue, checkOversizedIssue, ensureDir, extractImageMetadata, findConfigFile, findDuplicateGroups, findPossiblyUnusedImages, formatBytes, generateDuplicateIssues, generateUnusedIssues, getRelativePath, hashBuffer, hashFile, inferFormatFromExtension, isDirectory, isSupportedImageExtension, loadJsonFile, normalizePath, optimizeImage, optimizeProject, parseBytes, pathExists, resolvePath, scanImageFiles, scanProject };
 //# sourceMappingURL=index.d.mts.map

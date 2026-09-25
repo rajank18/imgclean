@@ -623,6 +623,180 @@ async function analyzeProject(rootDir, files, options = {}) {
 	};
 }
 //#endregion
-export { resolvePath as A, ensureDir as C, pathExists as D, loadJsonFile as E, getRelativePath as O, scanImageFiles as S, isDirectory as T, hashFile as _, checkDimensionIssue as a, inferFormatFromExtension as b, checkBudget as c, generateUnusedIssues as d, findDuplicateGroups as f, hashBuffer as g, parseBytes as h, DEFAULT_MAX_FILE_SIZE as i, SUPPORTED_EXTENSIONS as j, normalizePath as k, SOURCE_EXTENSIONS as l, formatBytes as m, analyzeProject as n, checkMetadataIssue as o, generateDuplicateIssues as p, DEFAULT_MAX_DIMENSION as r, checkOversizedIssue as s, analyzeImage as t, findPossiblyUnusedImages as u, extractImageMetadata as v, findConfigFile as w, isSupportedImageExtension as x, DEFAULT_EXCLUDE_PATTERNS as y };
+//#region src/core/optimizer.ts
+/**
+* Configure Sharp transformation pipeline based on options and quality
+*/
+function buildSharpPipeline(inputPath, targetFormat, quality, options, currentWidth, currentHeight) {
+	let pipeline = sharp(inputPath, { failOn: "none" });
+	if (options.resize || options.maxWidth || options.maxHeight) {
+		const maxWidth = options.maxWidth;
+		const maxHeight = options.maxHeight;
+		if (maxWidth || maxHeight) pipeline = pipeline.resize({
+			width: maxWidth,
+			height: maxHeight,
+			fit: "inside",
+			withoutEnlargement: true
+		});
+		else if (currentWidth && currentHeight && (currentWidth > 2560 || currentHeight > 2560)) pipeline = pipeline.resize({
+			width: 2560,
+			height: 2560,
+			fit: "inside",
+			withoutEnlargement: true
+		});
+	}
+	switch (targetFormat.toLowerCase().replace("jpg", "jpeg")) {
+		case "jpeg":
+			pipeline = pipeline.jpeg({
+				quality,
+				mozjpeg: true
+			});
+			break;
+		case "png":
+			pipeline = pipeline.png({
+				quality: quality < 100 ? quality : void 0,
+				compressionLevel: 9,
+				effort: 7
+			});
+			break;
+		case "webp":
+			pipeline = pipeline.webp({
+				quality,
+				effort: 6
+			});
+			break;
+		case "avif":
+			pipeline = pipeline.avif({
+				quality,
+				effort: 4
+			});
+			break;
+		default: break;
+	}
+	if (options.stripMetadata === false) pipeline = pipeline.withMetadata();
+	return pipeline;
+}
+/**
+* Optimize image buffer to meet target file size via binary search over compression quality
+*/
+async function searchOptimalQuality(inputPath, targetFormat, targetSizeBytes, options, width, height) {
+	let low = 5;
+	let high = 95;
+	let bestBuffer = null;
+	let bestQuality = 80;
+	while (low <= high) {
+		const mid = Math.floor((low + high) / 2);
+		const buffer = await buildSharpPipeline(inputPath, targetFormat, mid, options, width, height).toBuffer();
+		if (buffer.length <= targetSizeBytes) {
+			bestBuffer = buffer;
+			bestQuality = mid;
+			low = mid + 1;
+		} else high = mid - 1;
+	}
+	if (bestBuffer) return {
+		buffer: bestBuffer,
+		quality: bestQuality,
+		targetReached: true
+	};
+	const fallbackBuffer = await buildSharpPipeline(inputPath, targetFormat, 5, options, width, height).toBuffer();
+	return {
+		buffer: fallbackBuffer,
+		quality: 5,
+		targetReached: fallbackBuffer.length <= targetSizeBytes
+	};
+}
+/**
+* Safely optimize a single image file
+*/
+async function optimizeImage(inputPath, options = {}, rootDir) {
+	try {
+		const originalSize = (await fs.stat(inputPath)).size;
+		const metadata = await extractImageMetadata(inputPath);
+		const targetFormat = options.format ? options.format.toLowerCase() : path.extname(inputPath).replace(/^\./, "").toLowerCase() || "jpeg";
+		let targetSizeBytes;
+		if (options.targetSize) targetSizeBytes = parseBytes(options.targetSize);
+		let outputBuffer;
+		let qualityUsed = options.quality ?? 80;
+		let targetReached;
+		if (targetSizeBytes) {
+			const searchResult = await searchOptimalQuality(inputPath, targetFormat, targetSizeBytes, options, metadata.width, metadata.height);
+			outputBuffer = searchResult.buffer;
+			qualityUsed = searchResult.quality;
+			targetReached = searchResult.targetReached;
+		} else outputBuffer = await buildSharpPipeline(inputPath, targetFormat, qualityUsed, options, metadata.width, metadata.height).toBuffer();
+		const optimizedSize = outputBuffer.length;
+		const savingsBytes = Math.max(0, originalSize - optimizedSize);
+		const savingsPercentage = originalSize > 0 ? parseFloat((savingsBytes / originalSize * 100).toFixed(1)) : 0;
+		let outputPath;
+		if (!options.dryRun) {
+			const baseDir = rootDir || path.dirname(inputPath);
+			const relative = getRelativePath(baseDir, inputPath);
+			const ext = `.${targetFormat.replace("jpeg", "jpg")}`;
+			const newFileName = `${path.parse(relative).name}${ext}`;
+			const relativeDir = path.dirname(relative);
+			if (options.overwrite) outputPath = inputPath;
+			else if (options.outputDir) outputPath = path.resolve(options.outputDir, relativeDir, newFileName);
+			else outputPath = path.resolve(baseDir, ".imgclean", relativeDir, newFileName);
+			await ensureDir(path.dirname(outputPath));
+			await fs.writeFile(outputPath, outputBuffer);
+		}
+		return {
+			inputPath: normalizePath(inputPath),
+			outputPath: outputPath ? normalizePath(outputPath) : void 0,
+			originalSize,
+			optimizedSize,
+			savingsBytes,
+			savingsPercentage,
+			format: targetFormat,
+			width: metadata.width,
+			height: metadata.height,
+			qualityUsed,
+			targetSize: targetSizeBytes,
+			targetReached,
+			metadataStripped: options.stripMetadata !== false && metadata.hasMetadata,
+			dryRun: Boolean(options.dryRun),
+			success: true
+		};
+	} catch (err) {
+		const message = err instanceof Error ? err.message : String(err);
+		return {
+			inputPath: normalizePath(inputPath),
+			originalSize: 0,
+			optimizedSize: 0,
+			savingsBytes: 0,
+			savingsPercentage: 0,
+			format: "unknown",
+			dryRun: Boolean(options.dryRun),
+			success: false,
+			error: message
+		};
+	}
+}
+/**
+* Optimize a batch of image files safely
+*/
+async function optimizeProject(rootDir, files, options = {}) {
+	const results = [];
+	let totalOriginalSize = 0;
+	let totalOptimizedSize = 0;
+	for (const file of files) {
+		const res = await optimizeImage(file.absolutePath, options, rootDir);
+		results.push(res);
+		if (res.success) {
+			totalOriginalSize += res.originalSize;
+			totalOptimizedSize += res.optimizedSize;
+		}
+	}
+	const totalSavings = Math.max(0, totalOriginalSize - totalOptimizedSize);
+	return {
+		results,
+		totalOriginalSize,
+		totalOptimizedSize,
+		totalSavings,
+		dryRun: Boolean(options.dryRun)
+	};
+}
+//#endregion
+export { getRelativePath as A, isSupportedImageExtension as C, isDirectory as D, findConfigFile as E, resolvePath as M, SUPPORTED_EXTENSIONS as N, loadJsonFile as O, inferFormatFromExtension as S, ensureDir as T, parseBytes as _, DEFAULT_MAX_DIMENSION as a, extractImageMetadata as b, checkMetadataIssue as c, SOURCE_EXTENSIONS as d, findPossiblyUnusedImages as f, formatBytes as g, generateDuplicateIssues as h, analyzeProject as i, normalizePath as j, pathExists as k, checkOversizedIssue as l, findDuplicateGroups as m, optimizeProject as n, DEFAULT_MAX_FILE_SIZE as o, generateUnusedIssues as p, analyzeImage as r, checkDimensionIssue as s, optimizeImage as t, checkBudget as u, hashBuffer as v, scanImageFiles as w, DEFAULT_EXCLUDE_PATTERNS as x, hashFile as y };
 
-//# sourceMappingURL=analyzer-DiQkalZP.mjs.map
+//# sourceMappingURL=optimizer-BD393IIm.mjs.map

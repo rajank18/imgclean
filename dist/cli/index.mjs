@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { D as pathExists, E as loadJsonFile, S as scanImageFiles, m as formatBytes, n as analyzeProject, w as findConfigFile } from "../analyzer-DiQkalZP.mjs";
+import { E as findConfigFile, O as loadJsonFile, g as formatBytes, i as analyzeProject, k as pathExists, n as optimizeProject, w as scanImageFiles } from "../optimizer-BD393IIm.mjs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Command } from "commander";
@@ -106,8 +106,52 @@ async function scanCommand(targetPath, options = {}) {
 }
 //#endregion
 //#region src/cli/commands/fix.ts
-async function fixCommand(_targetPath, _options = {}) {
-	console.log(chalk.yellow("imgclean fix will be available in Phase 4."));
+async function fixCommand(targetPath, options = {}) {
+	const target = targetPath || ".";
+	const resolvedTarget = path.resolve(process.cwd(), target);
+	const configPath = await findConfigFile(process.cwd(), options.config);
+	const config = configPath ? await loadJsonFile(configPath) : null;
+	console.log(chalk.cyan.bold("\nimgclean fix"));
+	if (options.dryRun) console.log(chalk.yellow("[DRY RUN] No files will be modified or created.\n"));
+	const { rootDir, files } = await scanImageFiles(resolvedTarget, {
+		include: config?.include,
+		exclude: config?.exclude
+	});
+	if (files.length === 0) {
+		console.log(chalk.gray(`No images found in ${target}`));
+		return;
+	}
+	console.log(chalk.gray(`Optimizing ${files.length} image(s)...`));
+	const outcome = await optimizeProject(rootDir, files, {
+		...options,
+		outputDir: options.output || options.outputDir,
+		quality: options.quality ? Number(options.quality) : void 0,
+		maxWidth: options.maxWidth ? Number(options.maxWidth) : void 0,
+		maxHeight: options.maxHeight ? Number(options.maxHeight) : void 0
+	});
+	console.log(chalk.green(`\n✓ ${outcome.results.filter((r) => r.success).length} image(s) processed\n`));
+	console.log(chalk.bold("OPTIMIZATION SUMMARY"));
+	console.log("─".repeat(40));
+	console.log(`Original size:   ${formatBytes(outcome.totalOriginalSize).padStart(10, " ")}`);
+	console.log(`Optimized size:  ${formatBytes(outcome.totalOptimizedSize).padStart(10, " ")}`);
+	console.log(`Total savings:   ${chalk.green(formatBytes(outcome.totalSavings).padStart(10, " "))}`);
+	const successfulResults = outcome.results.filter((r) => r.success);
+	if (successfulResults.length > 0) {
+		console.log(chalk.bold("\nPROCESSED FILES"));
+		console.log("─".repeat(40));
+		for (const res of successfulResults.slice(0, 10)) {
+			const rel = path.basename(res.inputPath);
+			const diff = `${formatBytes(res.originalSize)} → ${formatBytes(res.optimizedSize)} (-${res.savingsPercentage}%)`;
+			console.log(`- ${rel.padEnd(20, " ")} ${diff}`);
+		}
+		if (successfulResults.length > 10) console.log(chalk.gray(`...and ${successfulResults.length - 10} more files`));
+	}
+	if (!options.dryRun && outcome.results.some((r) => r.outputPath)) {
+		const firstOutput = outcome.results.find((r) => r.outputPath)?.outputPath;
+		const outputLocation = firstOutput ? path.dirname(firstOutput) : ".imgclean";
+		console.log(chalk.blue(`\n📁 Optimized images safely saved to: ${outputLocation}`));
+		console.log(chalk.gray(`Original files were preserved.`));
+	}
 }
 //#endregion
 //#region src/cli/commands/ci.ts
