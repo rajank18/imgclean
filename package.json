@@ -40,7 +40,15 @@
     "budget",
     "bloat"
   ],
-  "author": "",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rajank18/imgclean.git"
+  },
+  "homepage": "https://github.com/rajank18/imgclean#readme",
+  "bugs": {
+    "url": "https://github.com/rajank18/imgclean/issues"
+  },
+  "author": "rajank18",
   "license": "MIT",
   "dependencies": {
     "chalk": "^5.4.1",

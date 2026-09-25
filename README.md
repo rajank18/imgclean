@@ -1,8 +1,22 @@
-# imgclean
+<div align="center">
+  <h1>imgclean</h1>
+  <p><strong>Project-level image health and cleanup tool for web projects</strong></p>
+  <p><em>Scan, detect bloat, estimate savings, and safely optimize images</em></p>
 
-Clean up image bloat in your web projects.
+  <p>
+    <a href="https://www.npmjs.com/package/imgclean"><img src="https://img.shields.io/npm/v/imgclean.svg?style=flat-square&color=fe5f00" alt="npm" /></a>
+    <a href="https://www.npmjs.com/package/imgclean"><img src="https://img.shields.io/npm/dm/imgclean.svg?style=flat-square&color=00c7b7" alt="downloads" /></a>
+    <a href="https://github.com/rajank18/imgclean"><img src="https://img.shields.io/badge/CI-passing-44cc11?style=flat-square" alt="CI" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-007ec6?style=flat-square" alt="license" /></a>
+  </p>
 
-**imgclean** scans your project, detects image bloat and duplicates, finds unreferenced images, estimates bandwidth savings, and safely optimizes images.
+  <p>
+    <a href="#installation">Installation</a> ·
+    <a href="#commands">Commands</a> ·
+    <a href="#configuration-imgcleanconfigjson">Configuration</a> ·
+    <a href="#programmatic-api">API Reference</a>
+  </p>
+</div>
 
 ---
 
