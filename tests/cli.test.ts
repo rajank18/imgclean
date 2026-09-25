@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
@@ -9,7 +9,8 @@ const execAsync = promisify(exec);
 const CLI_TEST_DIR = path.resolve(process.cwd(), '.tmp-test-cli');
 
 describe('cli', () => {
-  beforeAll(async () => {
+  beforeEach(async () => {
+    await fs.rm(CLI_TEST_DIR, { recursive: true, force: true });
     await fs.mkdir(CLI_TEST_DIR, { recursive: true });
     await sharp({
       create: {

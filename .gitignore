@@ -4,3 +4,4 @@ dist
 .imgclean
 imgclean-report.*
 coverage
+flow.md
