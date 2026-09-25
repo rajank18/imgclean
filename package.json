@@ -1,0 +1,58 @@
+{
+  "name": "imgclean",
+  "version": "0.1.0",
+  "description": "Project-level image health and cleanup tool for web projects",
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "bin": {
+    "imgclean": "./dist/cli/index.mjs"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev": "tsdown --watch"
+  },
+  "keywords": [
+    "image",
+    "optimizer",
+    "cleaner",
+    "health",
+    "analyzer",
+    "compression",
+    "sharp",
+    "ci",
+    "budget",
+    "bloat"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "cli-table3": "^0.6.5",
+    "commander": "^13.1.0",
+    "fast-glob": "^3.3.3",
+    "sharp": "^0.33.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.9",
+    "tsdown": "^0.21.10",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.7"
+  }
+}
