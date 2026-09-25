@@ -67,6 +67,7 @@ describe('scanner', () => {
     expect(isSupportedImageExtension('JPG')).toBe(true);
     expect(isSupportedImageExtension('.webp')).toBe(true);
     expect(isSupportedImageExtension('avif')).toBe(true);
+    expect(isSupportedImageExtension('ico')).toBe(true);
     expect(isSupportedImageExtension('txt')).toBe(false);
     expect(isSupportedImageExtension('pdf')).toBe(false);
   });

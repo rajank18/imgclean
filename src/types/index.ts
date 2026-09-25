@@ -6,7 +6,8 @@ export type SupportedImageFormat =
   | 'avif'
   | 'gif'
   | 'tiff'
-  | 'svg';
+  | 'svg'
+  | 'ico';
 
 export const SUPPORTED_EXTENSIONS = [
   'jpg',
@@ -17,6 +18,7 @@ export const SUPPORTED_EXTENSIONS = [
   'gif',
   'tiff',
   'svg',
+  'ico',
 ] as const;
 
 export interface DiscoveredImageFile {

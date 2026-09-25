@@ -6,18 +6,17 @@ Clean up image bloat in your web projects.
 
 ---
 
-## Quick Start
-
-Run instantly with npx (no install needed):
+## Installation
 
 ```bash
+# Run instantly without installing
 npx imgclean scan
-```
 
-Or install as a dev dependency:
-
-```bash
+# Or install locally in your project (run with npx imgclean)
 npm install -D imgclean
+
+# Or install globally (run imgclean directly from anywhere)
+npm install -g imgclean
 ```
 
 ---
@@ -141,7 +140,7 @@ const budget = checkBudget(scan.images, { total: '10mb', single: '500kb' });
 
 ## Supported Formats
 
-`jpg` · `jpeg` · `png` · `webp` · `avif` · `gif` · `tiff` · `svg`
+`jpg` · `jpeg` · `png` · `webp` · `avif` · `gif` · `tiff` · `svg` · `ico`
 
 ---
 

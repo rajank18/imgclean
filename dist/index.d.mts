@@ -1,6 +1,6 @@
 //#region src/types/index.d.ts
-type SupportedImageFormat = 'jpg' | 'jpeg' | 'png' | 'webp' | 'avif' | 'gif' | 'tiff' | 'svg';
-declare const SUPPORTED_EXTENSIONS: readonly ["jpg", "jpeg", "png", "webp", "avif", "gif", "tiff", "svg"];
+type SupportedImageFormat = 'jpg' | 'jpeg' | 'png' | 'webp' | 'avif' | 'gif' | 'tiff' | 'svg' | 'ico';
+declare const SUPPORTED_EXTENSIONS: readonly ["jpg", "jpeg", "png", "webp", "avif", "gif", "tiff", "svg", "ico"];
 interface DiscoveredImageFile {
   path: string;
   absolutePath: string;

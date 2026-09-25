@@ -11,10 +11,11 @@ const program = new Command();
 program
   .name('imgclean')
   .description('Project-level image health and cleanup tool for web projects')
-  .version('0.1.0');
+  .version('0.1.0')
+  .showHelpAfterError('\n(run "imgclean --help" to see all available commands and options)');
 
 program
-  .command('scan', { isDefault: true })
+  .command('scan')
   .description('Scan project images, detect bloat and issues')
   .argument('[path]', 'Path to project directory or image file', '.')
   .option('-v, --verbose', 'Show detailed output for each image')
@@ -45,6 +46,8 @@ program
   .option('--max-height <number>', 'Maximum height in pixels')
   .option('--target-size <size>', 'Optimize to target size (e.g. 300kb)')
   .option('--strip-metadata', 'Remove EXIF/metadata from images')
+  .option('--overwrite', 'Replace original images in-place (no code changes needed)')
+  .option('-o, --output <dir>', 'Custom output destination directory')
   .option('-c, --config <path>', 'Path to custom imgclean config file')
   .action(async (targetPath: string, options: Record<string, unknown>) => {
     try {
@@ -83,5 +86,10 @@ program
       process.exit(1);
     }
   });
+
+// If no arguments provided, display help
+if (process.argv.length <= 2) {
+  program.help();
+}
 
 program.parse(process.argv);

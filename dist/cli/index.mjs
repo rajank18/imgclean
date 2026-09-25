@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { A as findConfigFile, M as loadJsonFile, N as pathExists, O as scanImageFiles, b as formatBytes, c as analyzeProject, i as generateJsonReport, k as ensureDir, n as generateHtmlReport, o as optimizeProject, r as generateMarkdownReport, t as renderTerminalOutput } from "../terminal-CsKMqhJo.mjs";
+import { A as findConfigFile, M as loadJsonFile, N as pathExists, O as scanImageFiles, b as formatBytes, c as analyzeProject, i as generateJsonReport, k as ensureDir, n as generateHtmlReport, o as optimizeProject, r as generateMarkdownReport, t as renderTerminalOutput } from "../terminal-Q04uGUSL.mjs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import chalk from "chalk";
@@ -210,8 +210,8 @@ async function initCommand(targetDir = process.cwd()) {
 //#endregion
 //#region src/cli/index.ts
 const program = new Command();
-program.name("imgclean").description("Project-level image health and cleanup tool for web projects").version("0.1.0");
-program.command("scan", { isDefault: true }).description("Scan project images, detect bloat and issues").argument("[path]", "Path to project directory or image file", ".").option("-v, --verbose", "Show detailed output for each image").option("--json", "Output scan results as JSON to stdout").option("--report <format>", "Generate report file (html, json, md)").option("-o, --output <path>", "Custom path for the generated report").option("-c, --config <path>", "Path to custom imgclean config file").action(async (targetPath, options) => {
+program.name("imgclean").description("Project-level image health and cleanup tool for web projects").version("0.1.0").showHelpAfterError("\n(run \"imgclean --help\" to see all available commands and options)");
+program.command("scan").description("Scan project images, detect bloat and issues").argument("[path]", "Path to project directory or image file", ".").option("-v, --verbose", "Show detailed output for each image").option("--json", "Output scan results as JSON to stdout").option("--report <format>", "Generate report file (html, json, md)").option("-o, --output <path>", "Custom path for the generated report").option("-c, --config <path>", "Path to custom imgclean config file").action(async (targetPath, options) => {
 	try {
 		await scanCommand(targetPath, options);
 	} catch (err) {
@@ -220,7 +220,7 @@ program.command("scan", { isDefault: true }).description("Scan project images, d
 		process.exit(1);
 	}
 });
-program.command("fix").description("Safely optimize and clean images").argument("[path]", "Path to project directory or image file", ".").option("--dry-run", "Simulate optimization without writing files").option("--compress", "Compress images").option("--quality <number>", "Compression quality (1-100)").option("--format <format>", "Convert images to format (webp, avif, png, jpeg)").option("--resize", "Resize oversized images").option("--max-width <number>", "Maximum width in pixels").option("--max-height <number>", "Maximum height in pixels").option("--target-size <size>", "Optimize to target size (e.g. 300kb)").option("--strip-metadata", "Remove EXIF/metadata from images").option("-c, --config <path>", "Path to custom imgclean config file").action(async (targetPath, options) => {
+program.command("fix").description("Safely optimize and clean images").argument("[path]", "Path to project directory or image file", ".").option("--dry-run", "Simulate optimization without writing files").option("--compress", "Compress images").option("--quality <number>", "Compression quality (1-100)").option("--format <format>", "Convert images to format (webp, avif, png, jpeg)").option("--resize", "Resize oversized images").option("--max-width <number>", "Maximum width in pixels").option("--max-height <number>", "Maximum height in pixels").option("--target-size <size>", "Optimize to target size (e.g. 300kb)").option("--strip-metadata", "Remove EXIF/metadata from images").option("--overwrite", "Replace original images in-place (no code changes needed)").option("-o, --output <dir>", "Custom output destination directory").option("-c, --config <path>", "Path to custom imgclean config file").action(async (targetPath, options) => {
 	try {
 		await fixCommand(targetPath, options);
 	} catch (err) {
@@ -247,6 +247,7 @@ program.command("init").description("Create an imgclean.config.json configuratio
 		process.exit(1);
 	}
 });
+if (process.argv.length <= 2) program.help();
 program.parse(process.argv);
 //#endregion
 export {};
