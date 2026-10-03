@@ -185,7 +185,7 @@ const budget = checkBudget(scan.images, { total: '10mb', single: '500kb' });
 
 ---
 
-## Supported Formats
+## Supported Formats for scanning and cleanup
 
 `jpg` · `jpeg` · `png` · `webp` · `avif` · `gif` · `tiff` · `svg` · `ico`
 
