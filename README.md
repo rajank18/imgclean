@@ -61,6 +61,36 @@ imgclean scan --report=json
 
 ---
 
+### `imgclean convert <path> to <format>`
+
+Directly converts any image or entire folder to another format without altering original quality. Saves in the same directory by default.
+
+```bash
+# Convert a single image
+imgclean convert ./hero.png to webp
+
+# Convert and delete/replace the original file
+imgclean convert ./hero.png to webp --replace
+
+# Convert all images in a folder
+imgclean convert ./public/images to avif
+
+# Convert image to Windows/browser icon
+imgclean convert ./favicon.png to ico
+
+# Convert SVG vector to high-res PNG
+imgclean convert ./logo.svg to png
+```
+
+| Option | Description |
+| :--- | :--- |
+| `--replace` | Delete original image file after successful conversion |
+| `--quality <number>` | Conversion quality 1–100 (default: 90) |
+| `--size <number>` | Icon dimension when converting to `.ico` (default: 256) |
+| `-o, --output <dir>` | Optional destination folder |
+
+---
+
 ### `imgclean fix [path]`
 
 Safely optimizes images. Originals are never overwritten by default (saved to `.imgclean/`).
@@ -134,19 +164,22 @@ imgclean init
 ## Programmatic API
 
 ```typescript
-import { scanProject, optimizeImage, checkBudget } from 'imgclean';
+import { scanProject, convertImage, optimizeImage, checkBudget } from 'imgclean';
 
-// Scan directory
+// 1. Direct format conversion
+await convertImage('./hero.png', 'webp', { quality: 90 });
+
+// 2. Scan directory
 const scan = await scanProject('./public');
 console.log(`Images: ${scan.totalImages}, Savings: ${scan.potentialSavings}B`);
 
-// Optimize image
+// 3. Optimize image to target size
 const result = await optimizeImage('./public/hero.png', {
   format: 'webp',
   targetSize: '300kb',
 });
 
-// Check budget
+// 4. Check budget
 const budget = checkBudget(scan.images, { total: '10mb', single: '500kb' });
 ```
 

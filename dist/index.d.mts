@@ -321,11 +321,43 @@ interface TerminalOutputOptions {
  */
 declare function renderTerminalOutput(result: ScanResult, options?: TerminalOutputOptions): string;
 //#endregion
+//#region src/core/converter.d.ts
+type ConvertTargetFormat = 'webp' | 'avif' | 'png' | 'jpeg' | 'jpg' | 'gif' | 'tiff' | 'ico';
+interface ConvertOptions {
+  quality?: number;
+  outputDir?: string;
+  replace?: boolean;
+  iconSize?: number;
+}
+interface ConvertResult {
+  inputPath: string;
+  outputPath: string;
+  sourceFormat: string;
+  targetFormat: string;
+  originalSize: number;
+  convertedSize: number;
+  success: boolean;
+  replacedOriginal: boolean;
+  error?: string;
+}
+/**
+ * Normalize target format name
+ */
+declare function normalizeTargetFormat(format: string): ConvertTargetFormat;
+/**
+ * Convert a single image file to the target format
+ */
+declare function convertImage(inputPath: string, targetFormatRaw: string, options?: ConvertOptions): Promise<ConvertResult>;
+/**
+ * Convert a single file or recursively convert all images in a directory
+ */
+declare function convertProjectOrFile(targetPath: string, targetFormatRaw: string, options?: ConvertOptions): Promise<ConvertResult[]>;
+//#endregion
 //#region src/index.d.ts
 /**
  * Scan and analyze a project directory for image health, bloat, issues, duplicates, and unused assets
  */
 declare function scanProject(targetPath?: string, config?: ImgCleanConfig): Promise<ScanResult>;
 //#endregion
-export { AnalyzerOptions, BudgetStatus, DEFAULT_EXCLUDE_PATTERNS, DEFAULT_MAX_DIMENSION, DEFAULT_MAX_FILE_SIZE, DiscoveredImageFile, DuplicateGroup, ExtractedMetadata, ImageAnalysis, ImageIssue, ImageWithHash, ImgCleanBudgetsConfig, ImgCleanConfig, ImgCleanRulesConfig, IssueDetectionOptions, IssueSeverity, IssueType, OptimizeOptions, OptimizeResult, ReportType, SOURCE_EXTENSIONS, SUPPORTED_EXTENSIONS, ScanCliOptions, ScanResult, ScannerOptions, SupportedImageFormat, TerminalOutputOptions, UnusedDetectionOptions, analyzeImage, analyzeProject, checkBudget, checkDimensionIssue, checkMetadataIssue, checkOversizedIssue, ensureDir, extractImageMetadata, findConfigFile, findDuplicateGroups, findPossiblyUnusedImages, formatBytes, generateDuplicateIssues, generateHtmlReport, generateJsonReport, generateMarkdownReport, generateUnusedIssues, getRelativePath, hashBuffer, hashFile, inferFormatFromExtension, isDirectory, isSupportedImageExtension, loadJsonFile, normalizePath, optimizeImage, optimizeProject, parseBytes, pathExists, renderTerminalOutput, resolvePath, scanImageFiles, scanProject };
+export { AnalyzerOptions, BudgetStatus, ConvertOptions, ConvertResult, ConvertTargetFormat, DEFAULT_EXCLUDE_PATTERNS, DEFAULT_MAX_DIMENSION, DEFAULT_MAX_FILE_SIZE, DiscoveredImageFile, DuplicateGroup, ExtractedMetadata, ImageAnalysis, ImageIssue, ImageWithHash, ImgCleanBudgetsConfig, ImgCleanConfig, ImgCleanRulesConfig, IssueDetectionOptions, IssueSeverity, IssueType, OptimizeOptions, OptimizeResult, ReportType, SOURCE_EXTENSIONS, SUPPORTED_EXTENSIONS, ScanCliOptions, ScanResult, ScannerOptions, SupportedImageFormat, TerminalOutputOptions, UnusedDetectionOptions, analyzeImage, analyzeProject, checkBudget, checkDimensionIssue, checkMetadataIssue, checkOversizedIssue, convertImage, convertProjectOrFile, ensureDir, extractImageMetadata, findConfigFile, findDuplicateGroups, findPossiblyUnusedImages, formatBytes, generateDuplicateIssues, generateHtmlReport, generateJsonReport, generateMarkdownReport, generateUnusedIssues, getRelativePath, hashBuffer, hashFile, inferFormatFromExtension, isDirectory, isSupportedImageExtension, loadJsonFile, normalizePath, normalizeTargetFormat, optimizeImage, optimizeProject, parseBytes, pathExists, renderTerminalOutput, resolvePath, scanImageFiles, scanProject };
 //# sourceMappingURL=index.d.mts.map

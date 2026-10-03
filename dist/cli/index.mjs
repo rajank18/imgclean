@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { A as findConfigFile, M as loadJsonFile, N as pathExists, O as scanImageFiles, b as formatBytes, c as analyzeProject, i as generateJsonReport, k as ensureDir, n as generateHtmlReport, o as optimizeProject, r as generateMarkdownReport, t as renderTerminalOutput } from "../terminal-Q04uGUSL.mjs";
+import { C as formatBytes, F as loadJsonFile, I as pathExists, M as ensureDir, N as findConfigFile, a as generateHtmlReport, d as analyzeProject, i as renderTerminalOutput, j as scanImageFiles, l as optimizeProject, n as convertProjectOrFile, o as generateMarkdownReport, s as generateJsonReport } from "../converter-CESpwYRI.mjs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import chalk from "chalk";
@@ -56,6 +56,56 @@ async function scanCommand(targetPath, options = {}) {
 	const output = renderTerminalOutput(result, { verbose: options.verbose });
 	console.log(output);
 	return result;
+}
+//#endregion
+//#region src/cli/commands/convert.ts
+async function convertCommand(targetPath, arg2, arg3, options = {}) {
+	if (!targetPath) {
+		console.error(chalk.red("\nError: Please provide a file or folder path to convert."));
+		console.log(chalk.gray("Example: imgclean convert ./image.png to webp\n"));
+		process.exit(1);
+	}
+	let targetFormat;
+	if (arg2 && arg2.toLowerCase() === "to" && arg3) targetFormat = arg3;
+	else if (arg2 && arg2.toLowerCase() !== "to") targetFormat = arg2;
+	else if (options.to) targetFormat = options.to;
+	if (!targetFormat) {
+		console.error(chalk.red("\nError: Target format not specified."));
+		console.log(chalk.gray("Usage: imgclean convert <filepath> to <format>"));
+		console.log(chalk.gray("Example: imgclean convert ./hero.png to webp\n"));
+		process.exit(1);
+	}
+	const resolvedTarget = path.resolve(process.cwd(), targetPath);
+	const replaceOriginal = Boolean(options.replace || options.overwrite);
+	console.log(chalk.cyan.bold("\nimgclean convert"));
+	console.log(chalk.gray(`Converting ${targetPath} → ${targetFormat.toUpperCase()}...`));
+	const convertOpts = {
+		quality: options.quality ? Number(options.quality) : 90,
+		outputDir: options.output || options.outputDir,
+		replace: replaceOriginal,
+		iconSize: options.iconSize ? Number(options.iconSize) : void 0
+	};
+	const results = await convertProjectOrFile(resolvedTarget, targetFormat, convertOpts);
+	const successful = results.filter((r) => r.success);
+	const failed = results.filter((r) => !r.success);
+	if (successful.length > 0) {
+		console.log(chalk.green(`\n✓ Converted ${successful.length} image(s) to ${targetFormat.toUpperCase()}\n`));
+		console.log(chalk.bold("CONVERTED FILES"));
+		console.log("─".repeat(40));
+		for (const res of successful) {
+			const inputName = path.basename(res.inputPath);
+			const outputName = path.basename(res.outputPath);
+			const sizeDiff = `${formatBytes(res.originalSize)} → ${formatBytes(res.convertedSize)}`;
+			const replaceNotice = res.replacedOriginal ? chalk.yellow(" (original removed)") : "";
+			console.log(`- ${inputName} → ${chalk.cyan(outputName)} (${sizeDiff})${replaceNotice}`);
+		}
+	}
+	if (failed.length > 0) {
+		console.log(chalk.red(`\n✗ Failed to convert ${failed.length} image(s):`));
+		for (const res of failed) console.log(chalk.red(`- ${path.basename(res.inputPath)}: ${res.error || "Unknown error"}`));
+		process.exit(1);
+	}
+	console.log(chalk.gray(`\nDone.`));
 }
 //#endregion
 //#region src/cli/commands/fix.ts
@@ -214,6 +264,15 @@ program.name("imgclean").description("Project-level image health and cleanup too
 program.command("scan").description("Scan project images, detect bloat and issues").argument("[path]", "Path to project directory or image file", ".").option("-v, --verbose", "Show detailed output for each image").option("--json", "Output scan results as JSON to stdout").option("--report <format>", "Generate report file (html, json, md)").option("-o, --output <path>", "Custom path for the generated report").option("-c, --config <path>", "Path to custom imgclean config file").action(async (targetPath, options) => {
 	try {
 		await scanCommand(targetPath, options);
+	} catch (err) {
+		const message = err instanceof Error ? err.message : String(err);
+		console.error(`Error: ${message}`);
+		process.exit(1);
+	}
+});
+program.command("convert").description("Convert image(s) to a target format (webp, avif, png, jpeg, ico, tiff, gif)").argument("<path>", "Path to image file or directory").argument("[to]", "Keyword \"to\" or target format").argument("[format]", "Target format if \"to\" keyword was used").option("--to <format>", "Target format to convert into").option("--replace", "Delete original image file after successful conversion").option("--overwrite", "Alias for --replace").option("--quality <number>", "Conversion quality 1-100 (default: 90)").option("--size <number>", "Icon dimensions for .ico target (default: 256)").option("-o, --output <dir>", "Custom destination directory for converted images").action(async (targetPath, arg2, arg3, options) => {
+	try {
+		await convertCommand(targetPath, arg2, arg3, options);
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
 		console.error(`Error: ${message}`);

@@ -1,6 +1,6 @@
 {
   "name": "imgclean",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Project-level image health and cleanup tool for web projects",
   "type": "module",
   "main": "./dist/index.mjs",
@@ -55,12 +55,12 @@
     "cli-table3": "^0.6.5",
     "commander": "^13.1.0",
     "fast-glob": "^3.3.3",
-    "sharp": "^0.33.5"
+    "sharp": "^0.35.4"
   },
   "devDependencies": {
     "@types/node": "^22.13.9",
     "tsdown": "^0.21.10",
     "typescript": "^5.8.2",
-    "vitest": "^3.0.7"
+    "vitest": "^5.0.3"
   }
 }

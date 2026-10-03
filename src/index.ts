@@ -36,4 +36,7 @@ export async function scanProject(
   return analyzeProject(rootDir, files, { config });
 }
 
-export { optimizeImage, optimizeProject };
+export * from './core/converter.js';
+import { convertImage, convertProjectOrFile, type ConvertOptions, type ConvertResult } from './core/converter.js';
+
+export { optimizeImage, optimizeProject, convertImage, convertProjectOrFile };

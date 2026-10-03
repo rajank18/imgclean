@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 import { scanCommand } from './commands/scan.js';
+import { convertCommand } from './commands/convert.js';
 import { fixCommand } from './commands/fix.js';
 import { ciCommand } from './commands/ci.js';
 import { initCommand } from './commands/init.js';
@@ -26,6 +27,28 @@ program
   .action(async (targetPath: string, options: ScanCliOptions) => {
     try {
       await scanCommand(targetPath, options);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`Error: ${message}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('convert')
+  .description('Convert image(s) to a target format (webp, avif, png, jpeg, ico, tiff, gif)')
+  .argument('<path>', 'Path to image file or directory')
+  .argument('[to]', 'Keyword "to" or target format')
+  .argument('[format]', 'Target format if "to" keyword was used')
+  .option('--to <format>', 'Target format to convert into')
+  .option('--replace', 'Delete original image file after successful conversion')
+  .option('--overwrite', 'Alias for --replace')
+  .option('--quality <number>', 'Conversion quality 1-100 (default: 90)')
+  .option('--size <number>', 'Icon dimensions for .ico target (default: 256)')
+  .option('-o, --output <dir>', 'Custom destination directory for converted images')
+  .action(async (targetPath: string, arg2: string | undefined, arg3: string | undefined, options: Record<string, unknown>) => {
+    try {
+      await convertCommand(targetPath, arg2, arg3, options);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(`Error: ${message}`);
